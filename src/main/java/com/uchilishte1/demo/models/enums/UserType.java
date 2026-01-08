@@ -4,6 +4,7 @@ import lombok.Getter;
 
 @Getter
 public enum UserType {
+    ADMIN("Admin"),
     TEACHER("Teacher"),
     STUDENT("Student");
 

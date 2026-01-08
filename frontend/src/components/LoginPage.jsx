@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import logoImage from '../assets/logo.png'
 
 const LoginPage = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -8,6 +12,12 @@ const LoginPage = () => {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (location.state?.error) {
+      setErrors({ submit: location.state.error })
+    }
+  }, [location])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -46,13 +56,76 @@ const LoginPage = () => {
     }
 
     setIsLoading(true)
+    setErrors({})
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Login attempt:', formData)
+      await fetch('http://localhost:8080/logout', {
+        method: 'POST',
+        credentials: 'include'
+      }).catch(() => {})
+      
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      document.cookie.split(";").forEach(function(c) { 
+        const cookieName = c.split("=")[0].trim()
+        if (cookieName) {
+          document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=localhost`
+          document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/`
+        }
+      })
+      
+      sessionStorage.clear()
+      localStorage.clear()
+      
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      const formDataToSend = new URLSearchParams()
+      formDataToSend.append('username', formData.username)
+      formDataToSend.append('password', formData.password)
+
+      const response = await fetch('http://localhost:8080/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        credentials: 'include',
+        redirect: 'manual',
+        body: formDataToSend
+      })
+
+      const responseUrl = response.url || ''
+      const locationHeader = response.headers.get('Location') || ''
+      const redirectUrl = responseUrl || locationHeader
+
+      if (response.status === 302) {
+        if (redirectUrl.includes('/login?error') || redirectUrl.includes('error')) {
+          setErrors({ submit: 'Invalid username or password. Please verify the admin user exists and the password is correct.' })
+        } else if (redirectUrl.includes('/personal') || redirectUrl.includes('/login')) {
+          window.location.href = '/personal'
+          return
+        } else {
+          window.location.href = '/personal'
+          return
+        }
+      } else if (response.status === 0) {
+        window.location.href = '/personal'
+        return
+      } else if (response.status === 401 || response.status === 403) {
+        setErrors({ submit: 'Invalid username or password. Please verify the admin user exists and the password is correct.' })
+      } else if (response.status === 404) {
+        setErrors({ submit: 'Backend server not found. Is it running on port 8080?' })
+      } else if (response.status >= 200 && response.status < 300) {
+        window.location.href = '/personal'
+        return
+      } else {
+        setErrors({ submit: `Login failed with status: ${response.status}. Please check if the admin user exists in the database.` })
+      }
     } catch (error) {
-      console.error('Login error:', error)
-      setErrors({ submit: 'Invalid credentials. Please try again.' })
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        setErrors({ submit: 'Cannot connect to server. Is the backend running on port 8080?' })
+      } else {
+        setErrors({ submit: 'An error occurred. Please try again.' })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -60,10 +133,10 @@ const LoginPage = () => {
 
   return (
     <div 
-      className="min-h-screen bg-[#0F111A] relative overflow-hidden flex items-center justify-center p-6"
+      className="min-h-screen relative overflow-hidden flex items-center justify-center p-6"
       style={{
         minHeight: '100vh',
-        backgroundColor: '#0F111A',
+        backgroundColor: '#1a1612',
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
@@ -83,31 +156,29 @@ const LoginPage = () => {
         }}
       >
         <div 
-          className="absolute top-20 left-20 w-72 h-72 rounded-full blur-3xl animate-pulse"
+          className="absolute top-20 left-20 w-72 h-72 rounded-full blur-3xl"
           style={{
             position: 'absolute',
             top: '80px',
             left: '80px',
             width: '288px',
             height: '288px',
-            backgroundColor: 'rgba(0, 175, 255, 0.1)',
+            backgroundColor: 'rgba(184, 134, 11, 0.08)',
             borderRadius: '50%',
-            filter: 'blur(80px)',
-            animation: 'pulse 4s ease-in-out infinite'
+            filter: 'blur(80px)'
           }}
         ></div>
         <div 
-          className="absolute bottom-20 right-20 w-96 h-96 rounded-full blur-3xl animate-pulse"
+          className="absolute bottom-20 right-20 w-96 h-96 rounded-full blur-3xl"
           style={{
             position: 'absolute',
             bottom: '80px',
             right: '80px',
             width: '384px',
             height: '384px',
-            backgroundColor: 'rgba(0, 255, 127, 0.1)',
+            backgroundColor: 'rgba(210, 180, 140, 0.06)',
             borderRadius: '50%',
-            filter: 'blur(80px)',
-            animation: 'pulse 4s ease-in-out infinite 1s'
+            filter: 'blur(80px)'
           }}
         ></div>
         <div 
@@ -119,57 +190,25 @@ const LoginPage = () => {
             transform: 'translate(-50%, -50%)',
             width: '500px',
             height: '500px',
-            backgroundColor: 'rgba(0, 175, 255, 0.05)',
+            backgroundColor: 'rgba(184, 134, 11, 0.04)',
             borderRadius: '50%',
             filter: 'blur(80px)'
           }}
         ></div>
       </div>
 
-      {/* Abstract tech grid pattern */}
+      {/* Abstract pattern overlay */}
       <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 opacity-[0.02] pointer-events-none"
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: 0.03,
+          opacity: 0.02,
           pointerEvents: 'none',
-          backgroundImage: 'radial-gradient(circle at 2px 2px, #00AFFF 1px, transparent 0)',
+          backgroundImage: 'radial-gradient(circle at 2px 2px, #d4af37 1px, transparent 0)',
           backgroundSize: '40px 40px'
         }}
       ></div>
-
-      {/* Floating code elements decoration */}
-      <div 
-        className="absolute top-10 left-10 text-[#00AFFF] opacity-10 font-mono text-6xl pointer-events-none"
-        style={{
-          position: 'absolute',
-          top: '40px',
-          left: '40px',
-          color: '#00AFFF',
-          opacity: 0.1,
-          fontFamily: 'monospace',
-          fontSize: '48px',
-          pointerEvents: 'none'
-        }}
-      >
-        {'</>'}
-      </div>
-      <div 
-        className="absolute bottom-10 right-10 text-[#00FF7F] opacity-10 font-mono text-6xl pointer-events-none"
-        style={{
-          position: 'absolute',
-          bottom: '40px',
-          right: '40px',
-          color: '#00FF7F',
-          opacity: 0.1,
-          fontFamily: 'monospace',
-          fontSize: '48px',
-          pointerEvents: 'none'
-        }}
-      >
-        {'{}'}
-      </div>
 
       {/* Main content container */}
       <div 
@@ -182,7 +221,7 @@ const LoginPage = () => {
           margin: '0 auto'
         }}
       >
-        {/* Hero section */}
+        {/* Hero section with logo */}
         <div 
           className="text-center mb-10"
           style={{
@@ -191,40 +230,31 @@ const LoginPage = () => {
           }}
         >
           <div 
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6 shadow-lg"
+            className="inline-flex items-center justify-center mb-6"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #00AFFF 0%, #00FF7F 100%)',
-              boxShadow: '0 10px 25px rgba(0, 175, 255, 0.5)',
-              marginBottom: '24px',
-              transition: 'transform 0.3s ease'
+              marginBottom: '24px'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}
           >
-            <svg 
-              width="32" 
-              height="32" 
-              fill="none" 
-              stroke="#0F111A" 
-              viewBox="0 0 24 24" 
-              strokeWidth={2}
-              style={{ color: '#0F111A' }}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
+            <img 
+              src={logoImage} 
+              alt="School Logo" 
+              style={{
+                width: '120px',
+                height: '120px',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 4px 12px rgba(184, 134, 11, 0.3))'
+              }}
+            />
           </div>
           <h1 
-            className="text-4xl font-bold text-white mb-3 tracking-tight"
+            className="text-4xl font-bold mb-3 tracking-tight"
             style={{
               fontSize: '36px',
               fontWeight: 700,
-              color: '#ffffff',
+              color: '#d4af37',
               marginBottom: '12px',
               letterSpacing: '-0.02em',
               fontFamily: 'Inter, Montserrat, sans-serif'
@@ -233,10 +263,10 @@ const LoginPage = () => {
             Welcome Back
           </h1>
           <p 
-            className="text-gray-400 text-base"
+            className="text-base"
             style={{
               fontSize: '16px',
-              color: '#9ca3af',
+              color: '#c9a961',
               fontFamily: 'Roboto, Inter, sans-serif'
             }}
           >
@@ -250,19 +280,19 @@ const LoginPage = () => {
           style={{
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backgroundColor: 'rgba(45, 35, 26, 0.7)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
             borderRadius: '16px',
             padding: '48px 40px',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
             transition: 'all 0.3s ease'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-            e.currentTarget.style.boxShadow = '0 25px 50px -12px rgba(0, 175, 255, 0.3)'
+            e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.3)'
+            e.currentTarget.style.boxShadow = '0 25px 50px -12px rgba(184, 134, 11, 0.2)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)'
+            e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.2)'
             e.currentTarget.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
           }}
         >
@@ -275,11 +305,11 @@ const LoginPage = () => {
             <div className="space-y-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label 
                 htmlFor="username" 
-                className="block text-sm font-medium text-gray-300"
+                className="block text-sm font-medium"
                 style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#d1d5db',
+                  color: '#d4af37',
                   fontFamily: 'Roboto, Inter, sans-serif'
                 }}
               >
@@ -296,10 +326,10 @@ const LoginPage = () => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: `2px solid ${errors.username ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
+                    backgroundColor: 'rgba(26, 22, 18, 0.6)',
+                    border: `2px solid ${errors.username ? 'rgba(239, 68, 68, 0.5)' : 'rgba(212, 175, 55, 0.2)'}`,
                     borderRadius: '8px',
-                    color: '#ffffff',
+                    color: '#f5e6d3',
                     fontSize: '15px',
                     fontFamily: 'Roboto, Inter, sans-serif',
                     outline: 'none',
@@ -307,13 +337,13 @@ const LoginPage = () => {
                   }}
                   onFocus={(e) => {
                     if (!errors.username) {
-                      e.target.style.borderColor = '#00AFFF'
-                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 175, 255, 0.1)'
+                      e.target.style.borderColor = '#d4af37'
+                      e.target.style.boxShadow = '0 0 0 3px rgba(212, 175, 55, 0.1)'
                     }
                   }}
                   onBlur={(e) => {
                     if (!errors.username) {
-                      e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'
+                      e.target.style.borderColor = 'rgba(212, 175, 55, 0.2)'
                       e.target.style.boxShadow = 'none'
                     }
                   }}
@@ -350,11 +380,11 @@ const LoginPage = () => {
               >
                 <label 
                   htmlFor="password" 
-                  className="block text-sm font-medium text-gray-300"
+                  className="block text-sm font-medium"
                   style={{
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#d1d5db',
+                    color: '#d4af37',
                     fontFamily: 'Roboto, Inter, sans-serif'
                   }}
                 >
@@ -366,7 +396,7 @@ const LoginPage = () => {
                   className="text-sm transition-colors duration-200 font-medium"
                   style={{
                     fontSize: '13px',
-                    color: '#00AFFF',
+                    color: '#d4af37',
                     background: 'none',
                     border: 'none',
                     padding: 0,
@@ -375,8 +405,8 @@ const LoginPage = () => {
                     fontFamily: 'Roboto, Inter, sans-serif',
                     transition: 'color 0.2s ease'
                   }}
-                  onMouseEnter={(e) => e.target.style.color = '#00FF7F'}
-                  onMouseLeave={(e) => e.target.style.color = '#00AFFF'}
+                  onMouseEnter={(e) => e.target.style.color = '#f5d896'}
+                  onMouseLeave={(e) => e.target.style.color = '#d4af37'}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? 'Hide' : 'Show'}
@@ -393,10 +423,10 @@ const LoginPage = () => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: `2px solid ${errors.password ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
+                    backgroundColor: 'rgba(26, 22, 18, 0.6)',
+                    border: `2px solid ${errors.password ? 'rgba(239, 68, 68, 0.5)' : 'rgba(212, 175, 55, 0.2)'}`,
                     borderRadius: '8px',
-                    color: '#ffffff',
+                    color: '#f5e6d3',
                     fontSize: '15px',
                     fontFamily: 'Roboto, Inter, sans-serif',
                     outline: 'none',
@@ -404,13 +434,13 @@ const LoginPage = () => {
                   }}
                   onFocus={(e) => {
                     if (!errors.password) {
-                      e.target.style.borderColor = '#00AFFF'
-                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 175, 255, 0.1)'
+                      e.target.style.borderColor = '#d4af37'
+                      e.target.style.boxShadow = '0 0 0 3px rgba(212, 175, 55, 0.1)'
                     }
                   }}
                   onBlur={(e) => {
                     if (!errors.password) {
-                      e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'
+                      e.target.style.borderColor = 'rgba(212, 175, 55, 0.2)'
                       e.target.style.boxShadow = 'none'
                     }
                   }}
@@ -457,7 +487,7 @@ const LoginPage = () => {
               </div>
             )}
 
-            {/* Login Button with Gradient */}
+            {/* Login Button with Gold Gradient */}
             <button
               type="submit"
               disabled={isLoading}
@@ -466,8 +496,8 @@ const LoginPage = () => {
                 width: '100%',
                 padding: '12px 24px',
                 borderRadius: '8px',
-                background: 'linear-gradient(90deg, #00AFFF 0%, #00FF7F 100%)',
-                color: '#0F111A',
+                background: 'linear-gradient(135deg, #b8860b 0%, #d4af37 50%, #daa520 100%)',
+                color: '#1a1612',
                 fontSize: '15px',
                 fontWeight: 600,
                 fontFamily: 'Inter, Montserrat, sans-serif',
@@ -475,19 +505,19 @@ const LoginPage = () => {
                 cursor: isLoading ? 'wait' : 'pointer',
                 transition: 'all 0.3s ease',
                 opacity: isLoading ? 0.7 : 1,
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                boxShadow: '0 4px 6px -1px rgba(184, 134, 11, 0.3)',
                 position: 'relative',
                 overflow: 'hidden'
               }}
               onMouseEnter={(e) => {
                 if (!isLoading) {
                   e.currentTarget.style.transform = 'scale(1.02)'
-                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 175, 255, 0.5)'
+                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(184, 134, 11, 0.4)'
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(184, 134, 11, 0.3)'
               }}
               onMouseDown={(e) => {
                 if (!isLoading) e.currentTarget.style.transform = 'scale(0.98)'
@@ -496,10 +526,10 @@ const LoginPage = () => {
                 if (!isLoading) e.currentTarget.style.transform = 'scale(1.02)'
               }}
               onFocus={(e) => {
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 175, 255, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(212, 175, 55, 0.3), 0 4px 6px -1px rgba(184, 134, 11, 0.3)'
               }}
               onBlur={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(184, 134, 11, 0.3)'
               }}
             >
               {isLoading ? (
@@ -529,7 +559,7 @@ const LoginPage = () => {
             style={{
               marginTop: '32px',
               paddingTop: '24px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              borderTop: '1px solid rgba(212, 175, 55, 0.2)',
               textAlign: 'center'
             }}
           >
@@ -537,7 +567,7 @@ const LoginPage = () => {
               className="text-sm text-gray-500"
               style={{
                 fontSize: '13px',
-                color: '#6b7280',
+                color: '#8b7355',
                 fontFamily: 'Roboto, Inter, sans-serif'
               }}
             >
@@ -551,10 +581,6 @@ const LoginPage = () => {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
         }
       `}</style>
     </div>

@@ -1,7 +1,5 @@
 package com.uchilishte1.demo.models.entities;
 
-
-import com.uchilishte1.demo.models.enums.UserType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,38 +7,31 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Builder
-@Getter
-@Setter
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-public class User {
+@Table(name = "assignments")
+public class Assignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false)
-    private String firstName;
+    private String title;
+
+    private String description;
 
     @Column(nullable = false)
-    private String lastName;
+    private LocalDateTime sessionDate;
 
-    @Column(nullable = false, unique = true)
-    private String username;
+    @ManyToOne(optional = false)
+    @JoinColumn(nullable = false)
+    private User createdBy;
 
-    @Column(nullable = false)
-    private String password;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserType userType;
-
-    @Column
-    private String profilePictureUrl;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "klas_id")
+    @ManyToOne(optional = false)
+    @JoinColumn(nullable = false)
     private Klas klas;
 
     @Column(nullable = false, updatable = false)
@@ -51,7 +42,8 @@ public class User {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = updatedAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
+        updatedAt = createdAt;
     }
 
     @PreUpdate
@@ -59,3 +51,4 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 }
+
